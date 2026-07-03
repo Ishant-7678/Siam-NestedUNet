@@ -100,7 +100,7 @@ for epoch in range(opt.epochs):
         
         # Existing segmentation loss
         cd_loss = criterion(cd_preds, labels)
-
+        
         final_logits = cd_preds[-1]
         
         edl_loss = edl_criterion(
@@ -109,19 +109,6 @@ for epoch in range(opt.epochs):
             epoch
         )
         
-        cd_loss = cd_loss + lambda_edl * edl_loss
-        
-        # Last prediction of SNUNet
-        final_logits = cd_preds[-1]
-        
-        # Evidential loss
-        edl_loss = edl_criterion(
-            final_logits,
-            labels,
-            epoch
-        )
-        
-# Combined loss
         loss = cd_loss + lambda_edl * edl_loss
         loss.backward()
         optimizer.step()
@@ -141,7 +128,7 @@ for epoch in range(opt.epochs):
                                pos_label=1)
 
         train_metrics = set_metrics(train_metrics,
-                                    cd_loss,
+                                    loss,
                                     cd_corrects,
                                     cd_train_report,
                                     scheduler.get_last_lr())

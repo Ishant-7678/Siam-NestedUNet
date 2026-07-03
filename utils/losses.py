@@ -27,14 +27,14 @@ def relu_evidence(logits):
     Softplus is preferred over ReLU for smoother gradients.
     """
     return F.softplus(logits)
-def kl_divergence(alpha, num_classes):
+def kl_divergence(alpha):
     """
     KL divergence between predicted Dirichlet and uniform Dirichlet prior.
     """
 
     device = alpha.device
 
-    beta = torch.ones((1, num_classes), device=device)
+    beta = torch.ones_like(alpha)
 
     S_alpha = torch.sum(alpha, dim=1, keepdim=True)
     S_beta = torch.sum(beta, dim=1, keepdim=True)
@@ -53,7 +53,15 @@ def kl_divergence(alpha, num_classes):
 
     dg1 = torch.digamma(alpha)
 
-    kl = torch.sum((alpha - beta) * (dg1 - dg0), dim=1, keepdim=True) + lnB + lnB_uni
+    kl = (
+        torch.sum(
+            (alpha - beta) * (dg1 - dg0),
+            dim=1,
+            keepdim=True,
+        )
+        + lnB
+        + lnB_uni
+    )    
 
     return kl
 def loglikelihood_loss(target, alpha):
@@ -71,7 +79,7 @@ def loglikelihood_loss(target, alpha):
         keepdim=True,
     )
 
-    return err + var
+    return (err + var)
 def edl_loss(output, target, epoch_num, num_classes, annealing_step):
     """
     Sensoy Evidential Deep Learning Loss
@@ -86,6 +94,7 @@ def edl_loss(output, target, epoch_num, num_classes, annealing_step):
     target = F.one_hot(target.long(), num_classes=num_classes)
     target = target.permute(0, 3, 1, 2).float()
 
+
     loss = loglikelihood_loss(target, alpha)
     annealing_coef = min(
         1.0,
@@ -94,12 +103,12 @@ def edl_loss(output, target, epoch_num, num_classes, annealing_step):
 
     kl_alpha = (alpha - 1) * (1 - target) + 1
 
-    kl = annealing_coef * kl_divergence(kl_alpha, num_classes)
+    kl = annealing_coef * kl_divergence(kl_alpha)
 
     return (loss + kl).mean()
 class SensoyEDLLoss(nn.Module):
     def __init__(self, num_classes=2, annealing_step=100):
-        super(SensoyEDLLoss, self).__init__()
+        super().__init__()
         self.num_classes = num_classes
         self.annealing_step = annealing_step
 
