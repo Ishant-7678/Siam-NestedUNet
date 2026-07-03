@@ -12,6 +12,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 import random
 import numpy as np
+from utils.losses import SensoyEDLLoss
 
 
 """
@@ -55,6 +56,12 @@ logging.info('LOADING Model')
 model = load_model(opt, dev)
 
 criterion = get_criterion(opt)
+edl_criterion = SensoyEDLLoss(
+    num_classes=2,
+    annealing_step=opt.epochs
+)
+
+lambda_edl = 0.2
 optimizer = torch.optim.AdamW(model.parameters(), lr=opt.learning_rate) # Be careful when you adjust learning rate, you can refer to the linear scaling rule
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=8, gamma=0.5)
 
@@ -90,9 +97,32 @@ for epoch in range(opt.epochs):
 
         # Get model predictions, calculate loss, backprop
         cd_preds = model(batch_img1, batch_img2)
-
+        
+        # Existing segmentation loss
         cd_loss = criterion(cd_preds, labels)
-        loss = cd_loss
+
+        final_logits = cd_preds[-1]
+        
+        edl_loss = edl_criterion(
+            final_logits,
+            labels,
+            epoch
+        )
+        
+        cd_loss = cd_loss + lambda_edl * edl_loss
+        
+        # Last prediction of SNUNet
+        final_logits = cd_preds[-1]
+        
+        # Evidential loss
+        edl_loss = edl_criterion(
+            final_logits,
+            labels,
+            epoch
+        )
+        
+# Combined loss
+        loss = cd_loss + lambda_edl * edl_loss
         loss.backward()
         optimizer.step()
 
