@@ -215,6 +215,8 @@ for epoch in range(opt.epochs):
 
             # comet.log_asset(upload_metadata_file_path)
             best_metrics = mean_val_metrics
+        # Always save latest model
+        torch.save(model, "./tmp/last_model.pt")    
 
 
         print('An epoch finished.')
